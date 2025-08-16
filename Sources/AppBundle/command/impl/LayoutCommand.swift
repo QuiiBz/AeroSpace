@@ -22,6 +22,8 @@ struct LayoutCommand: Command {
                 return changeTilingLayout(io, targetLayout: .tiles, targetOrientation: .h, window: window)
             case .v_tiles:
                 return changeTilingLayout(io, targetLayout: .tiles, targetOrientation: .v, window: window)
+            case .bsp:
+                return changeTilingLayout(io, targetLayout: .bsp, targetOrientation: nil, window: window)
             case .accordion:
                 return changeTilingLayout(io, targetLayout: .accordion, targetOrientation: nil, window: window)
             case .tiles:
@@ -79,6 +81,7 @@ extension Window {
             case .v_accordion: (parent as? TilingContainer).map { $0.layout == .accordion && $0.orientation == .v } == true
             case .h_tiles:     (parent as? TilingContainer).map { $0.layout == .tiles && $0.orientation == .h } == true
             case .v_tiles:     (parent as? TilingContainer).map { $0.layout == .tiles && $0.orientation == .v } == true
+            case .bsp:       (parent as? TilingContainer)?.layout == .bsp
             case .tiling:      parent is TilingContainer
             case .floating:    parent is Workspace
         }

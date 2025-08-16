@@ -229,7 +229,7 @@ WARNING: i3 has a different terminology.
 * Each container can contain arbitrary number of children nodes
 * Windows are the only possible leaf nodes. Windows contain zero children nodes
 * Every container has two properties:
-. <<layouts,Layout>> (Possible values: `tiles`, `accordion`)
+. <<layouts,Layout>> (Possible values: `tiles`, `accordion`, `bsp`)
 . Orientation (Possible values: `horizontal`, `vertical`)
 
 When we say "layout of the window", we refer to the layout of the window’s parent container.

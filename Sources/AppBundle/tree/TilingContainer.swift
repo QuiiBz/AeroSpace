@@ -19,6 +19,22 @@ final class TilingContainer: TreeNode, NonLeafTreeNodeObject { // todo consider 
     }
 
     @MainActor
+    static func newBsp(parent: NonLeafTreeNodeObject, adaptiveWeight: CGFloat, index: Int) -> TilingContainer {
+        // For root BSP containers, respect the default-root-container-orientation setting
+        let orientation: Orientation = if parent is Workspace {
+            switch config.defaultRootContainerOrientation {
+                case .horizontal: .h
+                case .vertical: .v
+                case .auto: (parent as? Workspace)?.workspaceMonitor.then { $0.width >= $0.height } ?? true ? .h : .v
+            }
+        } else {
+            // For nested containers, use horizontal
+            .h
+        }
+        return TilingContainer(parent: parent, adaptiveWeight: adaptiveWeight, orientation, .bsp, index: index)
+    }
+
+    @MainActor
     static func newVTiles(parent: NonLeafTreeNodeObject, adaptiveWeight: CGFloat, index: Int) -> TilingContainer {
         TilingContainer(parent: parent, adaptiveWeight: adaptiveWeight, .v, .tiles, index: index)
     }
@@ -58,6 +74,7 @@ extension TilingContainer {
 enum Layout: String {
     case tiles
     case accordion
+    case bsp
 }
 
 extension String {

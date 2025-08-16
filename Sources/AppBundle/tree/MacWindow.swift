@@ -234,12 +234,51 @@ private func unbindAndGetBindingDataForNewTilingWindow(_ workspace: Workspace, w
     window?.unbindFromParent() // It's important to unbind to get correct data from below
     let mruWindow = workspace.mostRecentWindowRecursive
     if let mruWindow, let tilingParent = mruWindow.parent as? TilingContainer {
-        return BindingData(
-            parent: tilingParent,
-            adaptiveWeight: WEIGHT_AUTO,
-            index: mruWindow.ownIndex.orDie() + 1,
-        )
+        if tilingParent.layout == .bsp {
+            // For BSP layout, respect default-root-container-orientation for the first split
+            // and then alternate with opposite orientations for subsequent splits
+            let orientation: Orientation = if tilingParent.parent is Workspace {
+                // Use the default orientation for the first split
+                switch config.defaultRootContainerOrientation {
+                    case .horizontal: .h
+                    case .vertical: .v
+                    case .auto: workspace.workspaceMonitor.then { $0.width >= $0.height } ? .h : .v
+                }
+            } else {
+                tilingParent.orientation.opposite
+            }
+            let newParent = TilingContainer(
+                parent: tilingParent,
+                adaptiveWeight: WEIGHT_AUTO,
+                orientation,
+                .bsp,
+                index: mruWindow.ownIndex.orDie() + 1,
+            )
+            mruWindow.bind(to: newParent, adaptiveWeight: WEIGHT_AUTO, index: 0)
+            return BindingData(
+                parent: newParent,
+                adaptiveWeight: WEIGHT_AUTO,
+                index: 1,
+            )
+        } else {
+            return BindingData(
+                parent: tilingParent,
+                adaptiveWeight: WEIGHT_AUTO,
+                index: mruWindow.ownIndex.orDie() + 1,
+            )
+        }
     } else {
+        // For BSP layout, respect default-root-container-orientation for the root container
+        if workspace.rootTilingContainer.layout == .bsp {
+            let desiredOrientation: Orientation = switch config.defaultRootContainerOrientation {
+                case .horizontal: .h
+                case .vertical: .v
+                case .auto: workspace.workspaceMonitor.then { $0.width >= $0.height } ? .h : .v
+            }
+            if workspace.rootTilingContainer.orientation != desiredOrientation {
+                workspace.rootTilingContainer.changeOrientation(desiredOrientation)
+            }
+        }
         return BindingData(
             parent: workspace.rootTilingContainer,
             adaptiveWeight: WEIGHT_AUTO,
