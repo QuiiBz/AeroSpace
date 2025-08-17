@@ -75,6 +75,15 @@ enum Layout: String {
     case tiles
     case accordion
     case bsp
+
+    var isResizable: Bool {
+        switch self {
+            case .tiles, .bsp:
+                return true
+            case .accordion:
+                return false
+        }
+    }
 }
 
 extension String {
