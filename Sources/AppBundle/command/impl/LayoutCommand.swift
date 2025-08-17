@@ -23,15 +23,15 @@ struct LayoutCommand: Command {
             case .v_tiles:
                 return changeTilingLayout(io, targetLayout: .tiles, targetOrientation: .v, window: window)
             case .bsp:
-                return changeTilingLayout(io, targetLayout: .bsp, targetOrientation: nil, window: window)
+                return try await changeTilingLayoutOrConvertFromFloating(io, targetLayout: .bsp, targetOrientation: nil, window: window)
             case .accordion:
-                return changeTilingLayout(io, targetLayout: .accordion, targetOrientation: nil, window: window)
+                return try await changeTilingLayoutOrConvertFromFloating(io, targetLayout: .accordion, targetOrientation: nil, window: window)
             case .tiles:
-                return changeTilingLayout(io, targetLayout: .tiles, targetOrientation: nil, window: window)
+                return try await changeTilingLayoutOrConvertFromFloating(io, targetLayout: .tiles, targetOrientation: nil, window: window)
             case .horizontal:
-                return changeTilingLayout(io, targetLayout: nil, targetOrientation: .h, window: window)
+                return try await changeTilingLayoutOrConvertFromFloating(io, targetLayout: nil, targetOrientation: .h, window: window)
             case .vertical:
-                return changeTilingLayout(io, targetLayout: nil, targetOrientation: .v, window: window)
+                return try await changeTilingLayoutOrConvertFromFloating(io, targetLayout: nil, targetOrientation: .v, window: window)
             case .tiling:
                 guard let parent = window.parent else { return false }
                 switch parent.cases {
@@ -67,6 +67,35 @@ struct LayoutCommand: Command {
         case .workspace, .macosMinimizedWindowsContainer, .macosFullscreenWindowsContainer,
              .macosPopupWindowsContainer, .macosHiddenAppsWindowsContainer:
             return io.err("The window is non-tiling")
+    }
+}
+
+@MainActor private func changeTilingLayoutOrConvertFromFloating(_ io: CmdIo, targetLayout: Layout?, targetOrientation: Orientation?, window: Window) async throws -> Bool {
+    guard let parent = window.parent else { return false }
+    switch parent.cases {
+        case .tilingContainer(let parent):
+            let targetOrientation = targetOrientation ?? parent.orientation
+            let targetLayout = targetLayout ?? parent.layout
+            parent.layout = targetLayout
+            parent.changeOrientation(targetOrientation)
+            return true
+        case .workspace(let workspace):
+            // Convert floating window to tiling first
+            window.lastFloatingSize = try await window.getAxSize() ?? window.lastFloatingSize
+            try await window.relayoutWindow(on: workspace, forceTile: true)
+
+            // Now apply the desired layout to the root tiling container
+            let rootContainer = workspace.rootTilingContainer
+            if let targetLayout {
+                rootContainer.layout = targetLayout
+            }
+            if let targetOrientation {
+                rootContainer.changeOrientation(targetOrientation)
+            }
+            return true
+        case .macosMinimizedWindowsContainer, .macosFullscreenWindowsContainer,
+             .macosPopupWindowsContainer, .macosHiddenAppsWindowsContainer:
+            return io.err("Can't change layout for macOS minimized, fullscreen windows or windows or hidden apps. This behavior is subject to change")
     }
 }
 
