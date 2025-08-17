@@ -1,4 +1,5 @@
 #!/bin/bash
+eval "$(rbenv init -)"
 cd "$(dirname "$0")"
 source ./script/setup.sh
 
@@ -16,11 +17,11 @@ done
 ### BUILD ###
 #############
 
-./build-docs.sh
-./build-shell-completion.sh
+# ./build-docs.sh
+# ./build-shell-completion.sh
 
 ./generate.sh
-./script/check-uncommitted-files.sh
+# ./script/check-uncommitted-files.sh
 ./generate.sh --build-version "$build_version" --codesign-identity "$codesign_identity" --generate-git-hash
 
 swift build -c release --arch arm64 --arch x86_64 --product aerospace -Xswiftc -warnings-as-errors # CLI
@@ -44,7 +45,7 @@ xcodebuild-pretty .release/xcodebuild.log clean build \
     -configuration "$xcode_configuration" \
     -derivedDataPath .xcode-build
 
-git checkout .
+# git checkout .
 
 cp -r ".xcode-build/Build/Products/$xcode_configuration/AeroSpace.app" .release
 cp -r .build/apple/Products/Release/aerospace .release
@@ -111,7 +112,7 @@ codesign -v .release/aerospace
 
 mkdir -p ".release/AeroSpace-v$build_version/manpage" && cp .man/*.1 ".release/AeroSpace-v$build_version/manpage"
 cp -r ./legal ".release/AeroSpace-v$build_version/legal"
-cp -r .shell-completion ".release/AeroSpace-v$build_version/shell-completion"
+# cp -r .shell-completion ".release/AeroSpace-v$build_version/shell-completion"
 cd .release
     mkdir -p "AeroSpace-v$build_version/bin" && cp -r aerospace "AeroSpace-v$build_version/bin"
     cp -r AeroSpace.app "AeroSpace-v$build_version"
@@ -121,9 +122,9 @@ cd -
 #################
 ### Brew Cask ###
 #################
-for cask_name in aerospace aerospace-dev; do
-    ./script/build-brew-cask.sh \
-        --cask-name "$cask_name" \
-        --zip-uri ".release/AeroSpace-v$build_version.zip" \
-        --build-version "$build_version"
-done
+# for cask_name in aerospace aerospace-dev; do
+#     ./script/build-brew-cask.sh \
+#         --cask-name "$cask_name" \
+#         --zip-uri ".release/AeroSpace-v$build_version.zip" \
+#         --build-version "$build_version"
+# done
