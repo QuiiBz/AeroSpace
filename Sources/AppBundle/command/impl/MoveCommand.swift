@@ -131,8 +131,8 @@ private let moveOutMacosUnconventionalWindow = "moving macOS fullscreen, minimiz
 ) {
     let prevRoot = workspace.rootTilingContainer
     prevRoot.unbindFromParent()
-    // Force tiles layout
-    _ = TilingContainer(parent: workspace, adaptiveWeight: WEIGHT_AUTO, direction.orientation, .tiles, index: 0)
+    // Preserve the original layout instead of forcing tiles
+    _ = TilingContainer(parent: workspace, adaptiveWeight: WEIGHT_AUTO, direction.orientation, prevRoot.layout, index: 0)
     check(prevRoot != workspace.rootTilingContainer)
     prevRoot.bind(to: workspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: 0)
     window.bind(to: workspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: direction.insertionOffset)
