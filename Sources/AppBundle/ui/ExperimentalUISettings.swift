@@ -14,6 +14,16 @@ struct ExperimentalUISettings {
             UserDefaults.standard.synchronize()
         }
     }
+
+    var showOnlyFocusedWorkspace: Bool {
+        get {
+            UserDefaults.standard.bool(forKey: ExperimentalUISettingsItems.showOnlyFocusedWorkspace.rawValue)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: ExperimentalUISettingsItems.showOnlyFocusedWorkspace.rawValue)
+            UserDefaults.standard.synchronize()
+        }
+    }
 }
 
 enum MenuBarStyle: String, CaseIterable, Identifiable, Equatable, Hashable {
@@ -36,6 +46,7 @@ enum MenuBarStyle: String, CaseIterable, Identifiable, Equatable, Hashable {
 
 enum ExperimentalUISettingsItems: String {
     case displayStyle
+    case showOnlyFocusedWorkspace
 }
 
 @MainActor
@@ -45,6 +56,14 @@ func getExperimentalUISettingsMenu(viewModel: TrayMenuModel) -> some View {
         Text("Menu bar style (macOS 14 or later):")
         ForEach(MenuBarStyle.allCases, id: \.id) { style in
             MenuBarStyleButton(style: style, color: color).environmentObject(viewModel)
+        }
+        Divider()
+        Button {
+            viewModel.experimentalUISettings.showOnlyFocusedWorkspace.toggle()
+        } label: {
+            Toggle(isOn: .constant(viewModel.experimentalUISettings.showOnlyFocusedWorkspace)) {
+                Text("Show only focused workspace name")
+            }
         }
     } label: {
         Text("Experimental UI Settings (No stability guarantees)")

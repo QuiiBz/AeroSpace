@@ -18,14 +18,20 @@ public final class TrayMenuModel: ObservableObject {
 @MainActor func updateTrayText() async {
     let sortedMonitors = sortedMonitors
     let focus = focus
-    TrayMenuModel.shared.trayText = await (activeMode?.takeIf { $0 != mainModeId }?.first.map { "[\($0.uppercased())] " } ?? "") +
-        sortedMonitors
-        .asyncMap {
-            let hasFullscreenWindows = await $0.activeWorkspace.allLeafWindowsRecursive.asyncMap { try? await $0.isMacosFullscreen }.filterNotNil().first { $0 } ?? false
-            let activeWorkspaceName = hasFullscreenWindows ? "(\($0.activeWorkspace.name))" : $0.activeWorkspace.name
-            return ($0.activeWorkspace == focus.workspace && sortedMonitors.count > 1 ? "*" : "") + activeWorkspaceName
-        }
-        .joined(separator: " │ ")
+
+    if TrayMenuModel.shared.experimentalUISettings.showOnlyFocusedWorkspace {
+        TrayMenuModel.shared.trayText = await (activeMode?.takeIf { $0 != mainModeId }?.first.map { "[\($0.uppercased())] " } ?? "") + focus.workspace.name
+    } else {
+        TrayMenuModel.shared.trayText = await (activeMode?.takeIf { $0 != mainModeId }?.first.map { "[\($0.uppercased())] " } ?? "") +
+            sortedMonitors
+            .asyncMap {
+                let hasFullscreenWindows = await $0.activeWorkspace.allLeafWindowsRecursive.asyncMap { try? await $0.isMacosFullscreen }.filterNotNil().first { $0 } ?? false
+                let activeWorkspaceName = hasFullscreenWindows ? "(\($0.activeWorkspace.name))" : $0.activeWorkspace.name
+                return ($0.activeWorkspace == focus.workspace && sortedMonitors.count > 1 ? "*" : "") + activeWorkspaceName
+            }
+            .joined(separator: " │ ")
+    }
+
     TrayMenuModel.shared.workspaces = await Workspace.all.asyncMap {
         let apps = $0.allLeafWindowsRecursive.map { $0.app.name?.takeIf { !$0.isEmpty } }.filterNotNil().toSet()
         let dash = " - "
@@ -44,15 +50,21 @@ public final class TrayMenuModel: ObservableObject {
             hasFullscreenWindows: hasFullscreenWindows,
         )
     }
-    var items = await sortedMonitors.asyncMap {
-        let hasFullscreenWindows = await $0.activeWorkspace.allLeafWindowsRecursive.asyncMap { try? await $0.isMacosFullscreen }.filterNotNil().first { $0 } ?? false
-        return TrayItem(
-            type: .workspace,
-            name: $0.activeWorkspace.name,
-            isActive: $0.activeWorkspace == focus.workspace,
-            hasFullscreenWindows: hasFullscreenWindows,
-        )
+
+    var items: [TrayItem] = if TrayMenuModel.shared.experimentalUISettings.showOnlyFocusedWorkspace {
+        [TrayItem(type: .workspace, name: focus.workspace.name, isActive: true, hasFullscreenWindows: false)]
+    } else {
+        await sortedMonitors.asyncMap {
+            let hasFullscreenWindows = await $0.activeWorkspace.allLeafWindowsRecursive.asyncMap { try? await $0.isMacosFullscreen }.filterNotNil().first { $0 } ?? false
+            return TrayItem(
+                type: .workspace,
+                name: $0.activeWorkspace.name,
+                isActive: $0.activeWorkspace == focus.workspace,
+                hasFullscreenWindows: hasFullscreenWindows,
+            )
+        }
     }
+
     let mode = activeMode?.takeIf { $0 != mainModeId }?.first.map {
         TrayItem(type: .mode, name: $0.uppercased(), isActive: true, hasFullscreenWindows: false)
     }
