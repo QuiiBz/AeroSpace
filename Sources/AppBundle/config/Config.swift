@@ -1,6 +1,7 @@
 import AppKit
 import Common
 import HotKey
+import OrderedCollections
 
 func getDefaultConfigUrlFromProject() -> URL {
     var url = URL(filePath: #filePath)
@@ -32,6 +33,7 @@ var defaultConfigUrl: URL {
 @MainActor var configUrl: URL = defaultConfigUrl
 
 struct Config: ConvenienceCopyable {
+    var configVersion: Int = 1
     var afterLoginCommand: [any Command] = []
     var afterStartupCommand: [any Command] = []
     var _indentForNestedContainersWithTheSameOrientation: Void = ()
@@ -43,6 +45,7 @@ struct Config: ConvenienceCopyable {
     var automaticallyUnhideMacosHiddenApps: Bool = false
     var accordionPadding: Int = 30
     var enableNormalizationOppositeOrientationForNestedContainers: Bool = true
+    var persistentWorkspaces: OrderedSet<String> = []
     var execOnWorkspaceChange: [String] = [] // todo deprecate
     var keyMapping = KeyMapping()
     var execConfig: ExecConfig = ExecConfig()
@@ -55,8 +58,7 @@ struct Config: ConvenienceCopyable {
     var workspaceToMonitorForceAssignment: [String: [MonitorDescription]] = [:]
     var modes: [String: Mode] = [:]
     var onWindowDetected: [WindowDetectedCallback] = []
-
-    var preservedWorkspaceNames: [String] = []
+    var onModeChanged: [any Command] = []
 }
 
 enum DefaultContainerOrientation: String {

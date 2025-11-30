@@ -3,26 +3,35 @@ import Common
 import Foundation
 
 @MainActor public func initAppBundle() {
-    initTerminationHandler()
-    isCli = false
-    initServerArgs()
-    if isDebug {
-        toggleReleaseServerIfDebug(.off)
-        interceptTermination(SIGINT)
-        interceptTermination(SIGKILL)
-    }
-    if !reloadConfig() {
-        check(reloadConfig(forceConfigUrl: defaultConfigUrl))
-    }
-
-    checkAccessibilityPermissions()
-    startUnixSocketServer()
-    GlobalObserver.initObserver()
     Task {
+        initTerminationHandler()
+        isCli = false
+        initServerArgs()
+        if isDebug {
+            await toggleReleaseServerIfDebug(.off)
+            interceptTermination(SIGINT)
+            interceptTermination(SIGKILL)
+        }
+        if try await !reloadConfig() {
+            var out = ""
+            check(
+                try await !reloadConfig(forceConfigUrl: defaultConfigUrl, stdout: &out),
+                """
+                Can't load default config. Your installation is probably corrupted.
+                Please don't change default-config.toml
+
+                \(out)
+                """,
+            )
+        }
+
+        checkAccessibilityPermissions()
+        startUnixSocketServer()
+        GlobalObserver.initObserver()
         Workspace.garbageCollectUnusedWorkspaces() // init workspaces
         _ = Workspace.all.first?.focusWorkspace()
         try await runRefreshSessionBlocking(.startup, layoutWorkspaces: false)
-        try await runSession(.startup, .checkServerIsEnabledOrDie) {
+        try await runLightSession(.startup, .checkServerIsEnabledOrDie) {
             smartLayoutAtStartup()
             _ = try await config.afterStartupCommand.runCmdSeq(.defaultEnv, .emptyStdin)
         }
@@ -61,7 +70,7 @@ private let serverHelp = """
                               Useful if you want to use only debug-windows or other query commands.
     """
 
-private nonisolated(unsafe) var _serverArgs = ServerArgs()
+nonisolated(unsafe) private var _serverArgs = ServerArgs()
 var serverArgs: ServerArgs { _serverArgs }
 private func initServerArgs() {
     let args = CommandLine.arguments.slice(1...) ?? []
@@ -81,7 +90,7 @@ private func initServerArgs() {
                 if let arg = args.getOrNil(atIndex: index) {
                     _serverArgs.configLocation = arg
                 } else {
-                    cliError("Missing <path> in --config-path flag")
+                    exit(stderrMsg: "Missing <path> in --config-path flag")
                 }
                 index += 1
             case "--read-only": // todo rename to '--disabled' and unite with disabled feature
@@ -91,10 +100,10 @@ private func initServerArgs() {
                 // Usually it's '-NSDocumentRevisionsDebugMode NO'/'-NSDocumentRevisionsDebugMode YES'
                 while args.getOrNil(atIndex: index)?.starts(with: "-") == false { index += 1 }
             default:
-                cliError("Unrecognized flag '\(args.first.orDie())'")
+                exit(stderrMsg: "Unrecognized flag '\(args.first.orDie())'")
         }
     }
     if let path = serverArgs.configLocation, !FileManager.default.fileExists(atPath: path) {
-        cliError("\(path) doesn't exist")
+        exit(stderrMsg: "\(path) doesn't exist")
     }
 }

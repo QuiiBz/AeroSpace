@@ -71,6 +71,9 @@ struct SecureInputView: View {
         .foregroundStyle(fontColor)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .onTapGesture {
+            if !isMinimized {
+                SecureInputPanel.shared.refresh()
+            }
             isMinimized.toggle()
             SecureInputPanel.shared.updateFrame(isMinimized: isMinimized)
         }
@@ -79,9 +82,4 @@ struct SecureInputView: View {
             height: isMinimized ? iconSize.height : textSize.height,
         )
     }
-}
-
-#Preview {
-    SecureInputView()
-        .frame(width: 500, height: 120)
 }
