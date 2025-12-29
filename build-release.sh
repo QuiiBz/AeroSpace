@@ -1,5 +1,7 @@
 #!/bin/bash
-eval "$(rbenv init -)"
+if command -v rbenv &> /dev/null; then
+    eval "$(rbenv init -)"
+fi
 cd "$(dirname "$0")"
 source ./script/setup.sh
 
