@@ -149,7 +149,7 @@ final class MacWindow: Window {
                 let onePixelOffset = macApp.appId == .zoom ? .zero : CGPoint(x: 1, y: 1)
                 p = nodeMonitor.visibleRect.bottomRightCorner - onePixelOffset
         }
-        setAxFrame(p, nil)
+        setAxFrame(p, nil, animate: false)  // Don't animate hiding to corner
     }
 
     @MainActor
@@ -167,7 +167,7 @@ final class MacWindow: Window {
                     x: workspaceRect.width * prevUnhiddenProportionalPositionInsideWorkspaceRect.x,
                     y: workspaceRect.height * prevUnhiddenProportionalPositionInsideWorkspaceRect.y,
                 )
-                setAxFrame(workspaceRect.topLeftCorner + pointInsideWorkspace, nil)
+                setAxFrame(workspaceRect.topLeftCorner + pointInsideWorkspace, nil, animate: false)  // Don't animate unhiding
             case .macosNativeFullscreenWindow, .macosNativeHiddenAppWindow, .macosNativeMinimizedWindow,
                  .macosPopupWindow, .tiling, .rootTilingContainer, .shimContainerRelation: break
         }
@@ -183,12 +183,12 @@ final class MacWindow: Window {
         try await macApp.getAxSize(windowId)
     }
 
-    override func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?) {
-        macApp.setAxFrame(windowId, topLeft, size)
+    override func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true) {
+        macApp.setAxFrame(windowId, topLeft, size, animate: animate)
     }
 
-    override func setAxFrameBlocking(_ topLeft: CGPoint?, _ size: CGSize?) async throws {
-        try await macApp.setAxFrameBlocking(windowId, topLeft, size)
+    override func setAxFrameBlocking(_ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true) async throws {
+        try await macApp.setAxFrameBlocking(windowId, topLeft, size, animate: animate)
     }
 
     override func getAxTopLeftCorner() async throws -> CGPoint? {

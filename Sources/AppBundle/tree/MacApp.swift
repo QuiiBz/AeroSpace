@@ -16,6 +16,7 @@ final class MacApp: AbstractApp {
     public var lastNativeFocusedWindowId: UInt32? = nil
     private var thread: Thread?
     private var setFrameJobs: [UInt32: RunLoopJob] = [:]
+    private let animationCoordinator = WindowAnimationCoordinator()
     @MainActor private static var focusJob: RunLoopJob? = nil
 
     /*conforms*/ var name: String? { nsApp.localizedName }
@@ -128,20 +129,56 @@ final class MacApp: AbstractApp {
         }
     }
 
-    func setAxFrame(_ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?) {
+    func setAxFrame(_ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true) {
+        let duration = animate ? MainActor.assumeIsolated { config.windowAnimationDuration } : 0
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
-        setFrameJobs[windowId] = withWindowAsync(windowId) { [axApp] window, job in
-            try disableAnimations(app: axApp.threadGuarded, job) {
-                try setFrame(window, topLeft, size, job)
+        animationCoordinator.cancelAnimation(windowId: windowId)
+
+        if duration <= 0 {
+            // Instant mode (current behavior)
+            setFrameJobs[windowId] = withWindowAsync(windowId) { [axApp] window, job in
+                try disableAnimations(app: axApp.threadGuarded, job) {
+                    try setFrame(window, topLeft, size, job)
+                }
+            }
+        } else {
+            // Animated mode - use coordinator for parallel animations
+            setFrameJobs[windowId] = withWindowAsync(windowId) { [animationCoordinator] window, job in
+                animationCoordinator.addAnimation(
+                    windowId: windowId,
+                    window: window,
+                    targetTopLeft: topLeft,
+                    targetSize: size,
+                    duration: duration,
+                    job: job
+                )
             }
         }
     }
 
-    func setAxFrameBlocking(_ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?) async throws {
+    func setAxFrameBlocking(_ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true) async throws {
+        let duration = animate ? await MainActor.run { config.windowAnimationDuration } : 0
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
-        try await withWindow(windowId) { [axApp] window, job in
-            try disableAnimations(app: axApp.threadGuarded, job) {
-                try setFrame(window, topLeft, size, job)
+        animationCoordinator.cancelAnimation(windowId: windowId)
+
+        if duration <= 0 {
+            // Instant mode (current behavior)
+            try await withWindow(windowId) { [axApp] window, job in
+                try disableAnimations(app: axApp.threadGuarded, job) {
+                    try setFrame(window, topLeft, size, job)
+                }
+            }
+        } else {
+            // Animated mode - use coordinator for parallel animations
+            try await withWindow(windowId) { [animationCoordinator] window, job in
+                animationCoordinator.addAnimation(
+                    windowId: windowId,
+                    window: window,
+                    targetTopLeft: topLeft,
+                    targetSize: size,
+                    duration: duration,
+                    job: job
+                )
             }
         }
     }

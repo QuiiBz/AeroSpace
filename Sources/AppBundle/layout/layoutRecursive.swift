@@ -2,13 +2,13 @@ import AppKit
 
 extension Workspace {
     @MainActor
-    func layoutWorkspace() async throws {
+    func layoutWorkspace(animate: Bool = true) async throws {
         if isEffectivelyEmpty { return }
         let rect = workspaceMonitor.visibleRectPaddedByOuterGaps
         // If monitors are aligned vertically and the monitor below has smaller width, then macOS may not allow the
         // window on the upper monitor to take full width. rect.height - 1 resolves this problem
         // But I also faced this problem in monitors horizontal configuration. ¯\_(ツ)_/¯
-        try await layoutRecursive(rect.topLeftCorner, width: rect.width, height: rect.height - 1, virtual: rect, LayoutContext(self))
+        try await layoutRecursive(rect.topLeftCorner, width: rect.width, height: rect.height - 1, virtual: rect, LayoutContext(self, animate: animate))
     }
 }
 
@@ -35,7 +35,7 @@ extension TreeNode {
                     } else {
                         lastAppliedLayoutPhysicalRect = physicalRect
                         window.isFullscreen = false
-                        window.setAxFrame(point, CGSize(width: width, height: height))
+                        window.setAxFrame(point, CGSize(width: width, height: height), animate: context.animate)
                     }
                 }
             case .tilingContainer(let container):
@@ -59,11 +59,13 @@ extension TreeNode {
 private struct LayoutContext {
     let workspace: Workspace
     let resolvedGaps: ResolvedGaps
+    let animate: Bool
 
     @MainActor
-    init(_ workspace: Workspace) {
+    init(_ workspace: Workspace, animate: Bool = true) {
         self.workspace = workspace
         self.resolvedGaps = ResolvedGaps(gaps: config.gaps, monitor: workspace.workspaceMonitor)
+        self.animate = animate
     }
 }
 
@@ -80,7 +82,7 @@ extension Window {
             setAxFrame(CGPoint(
                 x: moveTo.visibleRect.topLeftX + xProportion * moveTo.visibleRect.width,
                 y: moveTo.visibleRect.topLeftY + yProportion * moveTo.visibleRect.height,
-            ), nil)
+            ), nil, animate: false)  // Don't animate cross-workspace moves
         }
         if isFullscreen {
             layoutFullscreen(context)
@@ -93,7 +95,7 @@ extension Window {
         let monitorRect = noOuterGapsInFullscreen
             ? context.workspace.workspaceMonitor.visibleRect
             : context.workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
-        setAxFrame(monitorRect.topLeftCorner, CGSize(width: monitorRect.width, height: monitorRect.height))
+        setAxFrame(monitorRect.topLeftCorner, CGSize(width: monitorRect.width, height: monitorRect.height), animate: context.animate)
     }
 }
 

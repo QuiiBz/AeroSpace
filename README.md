@@ -2,7 +2,14 @@
 
 Fork of [AeroSpace](https://github.com/nikitabobko/AeroSpace) to add several new features that I needed for my personal use. Changes are currently not upstreamed as they do not exactly fit the project's vision.
 
-- Add a new `bsp` layout that splits windows in the opposite direction of the parent node
+- Add a new `bsp` layout that splits windows in the opposite direction of the parent node:
+```toml
+default-root-container-layout = 'bsp'
+```
+- Add animations when moving windows in the current workspace, between workpaces, or when resizing windows:
+```toml
+window-animation-duration = 0.15
+```
 - Add a new `Show only focused workspace name` option in the menu bar experimental UI settings
 
 # AeroSpace Beta [![Build](https://github.com/nikitabobko/AeroSpace/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/nikitabobko/AeroSpace/actions/workflows/build.yml)

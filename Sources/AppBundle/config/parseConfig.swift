@@ -108,6 +108,7 @@ private let configParser: [String: any ParserProtocol<Config>] = [
 
     "start-at-login": Parser(\.startAtLogin, parseBool),
     "automatically-unhide-macos-hidden-apps": Parser(\.automaticallyUnhideMacosHiddenApps, parseBool),
+    "window-animation-duration": Parser(\.windowAnimationDuration, parseDouble),
     "accordion-padding": Parser(\.accordionPadding, parseInt),
     persistentWorkspacesKey: Parser(\.persistentWorkspaces, parsePersistentWorkspaces),
     "exec-on-workspace-change": Parser(\.execOnWorkspaceChange, parseArrayOfStrings),
@@ -243,6 +244,15 @@ func parseConfigVersion(_ raw: TOMLValueConvertible, _ backtrace: TomlBacktrace)
 
 func parseInt(_ raw: TOMLValueConvertible, _ backtrace: TomlBacktrace) -> ParsedToml<Int> {
     raw.int.orFailure(expectedActualTypeError(expected: .int, actual: raw.type, backtrace))
+}
+
+func parseDouble(_ raw: TOMLValueConvertible, _ backtrace: TomlBacktrace) -> ParsedToml<Double> {
+    if let double = raw.double {
+        return .success(double)
+    } else if let int = raw.int {
+        return .success(Double(int))
+    }
+    return .failure(expectedActualTypeError(expected: .double, actual: raw.type, backtrace))
 }
 
 func parseString(_ raw: TOMLValueConvertible, _ backtrace: TomlBacktrace) -> ParsedToml<String> {
