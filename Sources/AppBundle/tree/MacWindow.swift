@@ -183,12 +183,29 @@ final class MacWindow: Window {
         try await macApp.getAxSize(windowId)
     }
 
-    override func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true) {
-        macApp.setAxFrame(windowId, topLeft, size, animate: animate)
+    override func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true, slideDirection: SlideDirection? = nil) {
+        macApp.setAxFrame(windowId, topLeft, size, animate: animate, slideDirection: slideDirection)
     }
 
-    override func setAxFrameBlocking(_ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true) async throws {
-        try await macApp.setAxFrameBlocking(windowId, topLeft, size, animate: animate)
+    override func setAxFrameBlocking(_ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true, slideDirection: SlideDirection? = nil) async throws {
+        try await macApp.setAxFrameBlocking(windowId, topLeft, size, animate: animate, slideDirection: slideDirection)
+    }
+
+    @MainActor
+    func animateOffScreen(direction: SlideDirection) {
+        guard let monitor = nodeMonitor else { return }
+        
+        // Calculate current position
+        let currentX = lastAppliedLayoutPhysicalRect?.topLeftX ?? monitor.rect.topLeftX
+        let targetY = lastAppliedLayoutPhysicalRect?.topLeftY ?? monitor.rect.topLeftY
+        
+        // Slide off-screen by monitor width - ensures consistent animation distance
+        let slideDistance = monitor.rect.width
+        let targetX = direction == .left
+            ? currentX - slideDistance  // Slide left by full monitor width
+            : currentX + slideDistance  // Slide right by full monitor width
+        
+        setAxFrame(CGPoint(x: targetX, y: targetY), nil, animate: true)
     }
 
     override func getAxTopLeftCorner() async throws -> CGPoint? {

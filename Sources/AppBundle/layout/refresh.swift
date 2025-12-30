@@ -135,6 +135,10 @@ enum OptimalHideCorner {
 
 @MainActor
 private func layoutWorkspaces() async throws {
+    // Capture and clear workspace switch direction
+    let slideDirection = workspaceSwitchDirection
+    workspaceSwitchDirection = nil
+
     if !TrayMenuModel.shared.isEnabled {
         for workspace in Workspace.all {
             workspace.allLeafWindowsRecursive.forEach { ($0 as! MacWindow).unhideFromCorner() } // todo as!
@@ -168,18 +172,44 @@ private func layoutWorkspaces() async throws {
         monitorToOptimalHideCorner[monitor.rect.topLeftCorner] = corner
     }
 
-    // to reduce flicker, first unhide visible workspaces, then hide invisible ones
-    for monitor in monitors {
-        let workspace = monitor.activeWorkspace
-        workspace.allLeafWindowsRecursive.forEach { ($0 as! MacWindow).unhideFromCorner() } // todo as!
-        try await workspace.layoutWorkspace()
+    // Track which workspace we're animating out
+    var animatedOutWorkspace: Workspace? = nil
+
+    // If we have a slide direction, animate the previous workspace windows out
+    if let direction = slideDirection, let prevWorkspaceName = _prevFocusedWorkspaceName {
+        let prevWorkspace = Workspace.get(byName: prevWorkspaceName)
+        // Only animate if the previous workspace is now invisible (we actually switched away from it)
+        if !prevWorkspace.isVisible {
+            // direction=.right means new workspace is to the right, so old windows slide out to LEFT
+            let outDirection: SlideDirection = direction == .right ? .left : .right
+            for window in prevWorkspace.allLeafWindowsRecursive {
+                (window as! MacWindow).animateOffScreen(direction: outDirection) // todo as!
+            }
+            animatedOutWorkspace = prevWorkspace
+        }
     }
-    for workspace in Workspace.all where !workspace.isVisible {
+
+    // Hide all invisible workspaces FIRST (except the one being animated out)
+    // This ensures no stale windows are visible during the animation
+    for workspace in Workspace.all where !workspace.isVisible && workspace != animatedOutWorkspace {
         let corner = monitorToOptimalHideCorner[workspace.workspaceMonitor.rect.topLeftCorner] ?? .bottomRightCorner
         for window in workspace.allLeafWindowsRecursive {
             try await (window as! MacWindow).hideInCorner(corner) // todo as!
         }
     }
+
+    // Now layout visible workspaces with slide-in animation
+    for monitor in monitors {
+        let workspace = monitor.activeWorkspace
+        // Don't unhide from corner when sliding in - the animation will handle positioning from the edge
+        if slideDirection == nil {
+            workspace.allLeafWindowsRecursive.forEach { ($0 as! MacWindow).unhideFromCorner() } // todo as!
+        }
+        try await workspace.layoutWorkspace(slideDirection: slideDirection)
+    }
+
+    // Don't hide the animated-out workspace - it ends up off-screen from the slide-out animation
+    // and will be properly positioned when switching back to it
 }
 
 @MainActor

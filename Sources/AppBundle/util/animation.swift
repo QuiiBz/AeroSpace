@@ -11,7 +11,7 @@ func lerp(_ a: CGFloat, _ b: CGFloat, _ t: Double) -> CGFloat {
 }
 
 /// Check if a window position is off-screen (hidden in corner)
-private func isOffScreen(_ topLeft: CGPoint, _ size: CGSize) -> Bool {
+func isOffScreen(_ topLeft: CGPoint, _ size: CGSize) -> Bool {
     let windowRect = CGRect(origin: topLeft, size: size)
     // Check if window is visible on any screen
     for screen in NSScreen.screens {
@@ -23,6 +23,18 @@ private func isOffScreen(_ topLeft: CGPoint, _ size: CGSize) -> Bool {
         }
     }
     return true
+}
+
+/// Get the monitor bounds for a given target position
+private func getMonitorBounds(for targetTopLeft: CGPoint) -> CGRect? {
+    // Find the monitor that contains the target position
+    for screen in NSScreen.screens {
+        if screen.frame.contains(targetTopLeft) {
+            return screen.frame
+        }
+    }
+    // Fallback to main screen
+    return NSScreen.main?.frame
 }
 
 /// Manages parallel window animations on a single thread
@@ -41,6 +53,8 @@ final class WindowAnimationCoordinator: @unchecked Sendable {
         let startTime: Double
         let duration: Double
         let job: RunLoopJob
+        var lastSetTopLeft: CGPoint?
+        var lastSetSize: CGSize?
     }
 
     func addAnimation(
@@ -49,7 +63,8 @@ final class WindowAnimationCoordinator: @unchecked Sendable {
         targetTopLeft: CGPoint?,
         targetSize: CGSize?,
         duration: Double,
-        job: RunLoopJob
+        job: RunLoopJob,
+        slideDirection: SlideDirection? = nil
     ) {
         // Get current position/size
         guard let currentTopLeft = window.get(Ax.topLeftCornerAttr),
@@ -68,23 +83,40 @@ final class WindowAnimationCoordinator: @unchecked Sendable {
             return
         }
 
-        // Skip animation if window is coming from off-screen (hidden corner)
-        // This prevents animation during workspace switches
-        if isOffScreen(currentTopLeft, currentSize) {
-            if let topLeft = targetTopLeft { window.set(Ax.topLeftCornerAttr, topLeft) }
-            if let size = targetSize { window.set(Ax.sizeAttr, size) }
-            return
+        // Determine effective start position and size
+        var effectiveStartTopLeft = currentTopLeft
+        var effectiveStartSize = currentSize
+        let windowIsOffScreen = isOffScreen(currentTopLeft, currentSize)
+
+        if let direction = slideDirection, windowIsOffScreen {
+            // Window is coming from off-screen - override start position to slide from specified direction
+            // Start from monitor width away to match exit animation distance
+            if let monitorBounds = getMonitorBounds(for: finalTargetTopLeft) {
+                let slideDistance = monitorBounds.width
+                effectiveStartTopLeft = CGPoint(
+                    x: direction == .right
+                        ? finalTargetTopLeft.x + slideDistance  // Start monitor-width to the right
+                        : finalTargetTopLeft.x - slideDistance,  // Start monitor-width to the left
+                    y: finalTargetTopLeft.y  // Keep target Y position
+                )
+                effectiveStartSize = finalTargetSize  // Start at target size for slide-in
+                // Move window to start position before animating
+                window.set(Ax.topLeftCornerAttr, effectiveStartTopLeft)
+                window.set(Ax.sizeAttr, effectiveStartSize)
+            }
         }
 
         animations[windowId] = WindowAnimation(
             window: window,
-            startTopLeft: currentTopLeft,
-            startSize: currentSize,
+            startTopLeft: effectiveStartTopLeft,
+            startSize: effectiveStartSize,
             targetTopLeft: finalTargetTopLeft,
             targetSize: finalTargetSize,
             startTime: CACurrentMediaTime(),
             duration: duration,
-            job: job
+            job: job,
+            lastSetTopLeft: nil,
+            lastSetSize: nil
         )
 
         if !isRunning {
@@ -99,10 +131,12 @@ final class WindowAnimationCoordinator: @unchecked Sendable {
 
     private func runAnimationLoop() {
         var lastFrameTime = CACurrentMediaTime()
+        let epsilon: CGFloat = 0.5  // Skip updates if change is less than 0.5 pixels
 
         while !animations.isEmpty {
             let now = CACurrentMediaTime()
             var completedIds: [UInt32] = []
+            var updates: [(UInt32, WindowAnimation)] = []
 
             for (windowId, anim) in animations {
                 if anim.job.isCancelled {
@@ -119,12 +153,75 @@ final class WindowAnimationCoordinator: @unchecked Sendable {
                 let w = lerp(anim.startSize.width, anim.targetSize.width, t)
                 let h = lerp(anim.startSize.height, anim.targetSize.height, t)
 
-                anim.window.set(Ax.sizeAttr, CGSize(width: w, height: h))
-                anim.window.set(Ax.topLeftCornerAttr, CGPoint(x: x, y: y))
+                let newTopLeft = CGPoint(x: x, y: y)
+                let newSize = CGSize(width: w, height: h)
 
-                if progress >= 1.0 {
-                    completedIds.append(windowId)
+                // Calculate total animation distance to determine if we can complete early
+                let totalPositionDistance = max(
+                    abs(anim.targetTopLeft.x - anim.startTopLeft.x),
+                    abs(anim.targetTopLeft.y - anim.startTopLeft.y)
+                )
+                let totalSizeDistance = max(
+                    abs(anim.targetSize.width - anim.startSize.width),
+                    abs(anim.targetSize.height - anim.startSize.height)
+                )
+                
+                // Only allow early completion for long-distance animations (>100px)
+                // This prevents "pop" on short animations while avoiding slow tail on long ones
+                let canCompleteEarly = totalPositionDistance > 100 || totalSizeDistance > 100
+                
+                if canCompleteEarly {
+                    let positionDelta = max(
+                        abs(newTopLeft.x - anim.targetTopLeft.x),
+                        abs(newTopLeft.y - anim.targetTopLeft.y)
+                    )
+                    let sizeDelta = max(
+                        abs(newSize.width - anim.targetSize.width),
+                        abs(newSize.height - anim.targetSize.height)
+                    )
+                    
+                    let closeEnough = positionDelta < 3.0 && sizeDelta < 3.0
+                    
+                    if closeEnough {
+                        // Jump to final position and complete
+                        anim.window.set(Ax.topLeftCornerAttr, anim.targetTopLeft)
+                        anim.window.set(Ax.sizeAttr, anim.targetSize)
+                        completedIds.append(windowId)
+                        continue
+                    }
                 }
+                
+                if progress >= 1.0 {
+                    // Animation time completed - set final position
+                    anim.window.set(Ax.topLeftCornerAttr, anim.targetTopLeft)
+                    anim.window.set(Ax.sizeAttr, anim.targetSize)
+                    completedIds.append(windowId)
+                    continue
+                }
+
+                // Only make AX calls if values changed significantly
+                var updatedAnim = anim
+                
+                if anim.lastSetTopLeft == nil || 
+                   abs(newTopLeft.x - anim.lastSetTopLeft!.x) > epsilon || 
+                   abs(newTopLeft.y - anim.lastSetTopLeft!.y) > epsilon {
+                    anim.window.set(Ax.topLeftCornerAttr, newTopLeft)
+                    updatedAnim.lastSetTopLeft = newTopLeft
+                }
+                
+                if anim.lastSetSize == nil || 
+                   abs(newSize.width - anim.lastSetSize!.width) > epsilon || 
+                   abs(newSize.height - anim.lastSetSize!.height) > epsilon {
+                    anim.window.set(Ax.sizeAttr, newSize)
+                    updatedAnim.lastSetSize = newSize
+                }
+                
+                updates.append((windowId, updatedAnim))
+            }
+
+            // Apply updates after iteration to avoid mutation during iteration
+            for (windowId, anim) in updates {
+                animations[windowId] = anim
             }
 
             for id in completedIds {

@@ -6,7 +6,7 @@ Fork of [AeroSpace](https://github.com/nikitabobko/AeroSpace) to add several new
 ```toml
 default-root-container-layout = 'bsp'
 ```
-- Add animations when moving windows in the current workspace, between workpaces, or when resizing windows:
+- Add animations when moving or resizing windows, and when switching workspaces:
 ```toml
 window-animation-duration = 0.15
 ```

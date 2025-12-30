@@ -2,13 +2,13 @@ import AppKit
 
 extension Workspace {
     @MainActor
-    func layoutWorkspace(animate: Bool = true) async throws {
+    func layoutWorkspace(animate: Bool = true, slideDirection: SlideDirection? = nil) async throws {
         if isEffectivelyEmpty { return }
         let rect = workspaceMonitor.visibleRectPaddedByOuterGaps
         // If monitors are aligned vertically and the monitor below has smaller width, then macOS may not allow the
         // window on the upper monitor to take full width. rect.height - 1 resolves this problem
         // But I also faced this problem in monitors horizontal configuration. ¯\_(ツ)_/¯
-        try await layoutRecursive(rect.topLeftCorner, width: rect.width, height: rect.height - 1, virtual: rect, LayoutContext(self, animate: animate))
+        try await layoutRecursive(rect.topLeftCorner, width: rect.width, height: rect.height - 1, virtual: rect, LayoutContext(self, animate: animate, slideDirection: slideDirection))
     }
 }
 
@@ -35,7 +35,7 @@ extension TreeNode {
                     } else {
                         lastAppliedLayoutPhysicalRect = physicalRect
                         window.isFullscreen = false
-                        window.setAxFrame(point, CGSize(width: width, height: height), animate: context.animate)
+                        window.setAxFrame(point, CGSize(width: width, height: height), animate: context.animate, slideDirection: context.slideDirection)
                     }
                 }
             case .tilingContainer(let container):
@@ -60,12 +60,14 @@ private struct LayoutContext {
     let workspace: Workspace
     let resolvedGaps: ResolvedGaps
     let animate: Bool
+    let slideDirection: SlideDirection?
 
     @MainActor
-    init(_ workspace: Workspace, animate: Bool = true) {
+    init(_ workspace: Workspace, animate: Bool = true, slideDirection: SlideDirection? = nil) {
         self.workspace = workspace
         self.resolvedGaps = ResolvedGaps(gaps: config.gaps, monitor: workspace.workspaceMonitor)
         self.animate = animate
+        self.slideDirection = slideDirection
     }
 }
 
@@ -95,7 +97,7 @@ extension Window {
         let monitorRect = noOuterGapsInFullscreen
             ? context.workspace.workspaceMonitor.visibleRect
             : context.workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
-        setAxFrame(monitorRect.topLeftCorner, CGSize(width: monitorRect.width, height: monitorRect.height), animate: context.animate)
+        setAxFrame(monitorRect.topLeftCorner, CGSize(width: monitorRect.width, height: monitorRect.height), animate: context.animate, slideDirection: context.slideDirection)
     }
 }
 

@@ -132,7 +132,7 @@ final class MacApp: AbstractApp {
         }
     }
 
-    func setAxFrame(_ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true) {
+    func setAxFrame(_ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true, slideDirection: SlideDirection? = nil) {
         let duration = animate ? MainActor.assumeIsolated { config.windowAnimationDuration } : 0
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
         animationCoordinator.cancelAnimation(windowId: windowId)
@@ -153,13 +153,14 @@ final class MacApp: AbstractApp {
                     targetTopLeft: topLeft,
                     targetSize: size,
                     duration: duration,
-                    job: job
+                    job: job,
+                    slideDirection: slideDirection
                 )
             }
         }
     }
 
-    func setAxFrameBlocking(_ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true) async throws {
+    func setAxFrameBlocking(_ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true, slideDirection: SlideDirection? = nil) async throws {
         let duration = animate ? await MainActor.run { config.windowAnimationDuration } : 0
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
         animationCoordinator.cancelAnimation(windowId: windowId)
@@ -180,7 +181,8 @@ final class MacApp: AbstractApp {
                     targetTopLeft: topLeft,
                     targetSize: size,
                     duration: duration,
-                    job: job
+                    job: job,
+                    slideDirection: slideDirection
                 )
             }
         }
