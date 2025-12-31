@@ -268,7 +268,7 @@ private func unbindAndGetBindingDataForNewTilingWindow(_ workspace: Workspace, w
             }
             let newParent = TilingContainer(
                 parent: tilingParent,
-                adaptiveWeight: WEIGHT_AUTO,
+                adaptiveWeight: mruWindow.getWeight(tilingParent.orientation),
                 orientation,
                 .bsp,
                 index: mruWindow.ownIndex.orDie() + 1,
