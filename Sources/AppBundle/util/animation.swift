@@ -1,5 +1,24 @@
 import AppKit
 
+/// Debug logging helper
+private func debugLog(_ message: String) {
+    let logFile = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("aerospace-animation-debug.log")
+    let timestamp = Date().formatted(date: .omitted, time: .standard)
+    let logMessage = "[\(timestamp)] \(message)\n"
+    if let data = logMessage.data(using: .utf8) {
+        if FileManager.default.fileExists(atPath: logFile.path) {
+            if let handle = try? FileHandle(forWritingTo: logFile) {
+                handle.seekToEndOfFile()
+                handle.write(data)
+                try? handle.close()
+            }
+        } else {
+            try? data.write(to: logFile)
+        }
+    }
+}
+
 /// Ease-out cubic easing function for smooth deceleration
 func easeOutCubic(_ t: Double) -> Double {
     1 - pow(1 - t, 3)
@@ -55,6 +74,7 @@ final class WindowAnimationCoordinator: @unchecked Sendable {
         let job: RunLoopJob
         var lastSetTopLeft: CGPoint?
         var lastSetSize: CGSize?
+        let onComplete: (@Sendable () -> Void)?
     }
 
     func addAnimation(
@@ -64,7 +84,8 @@ final class WindowAnimationCoordinator: @unchecked Sendable {
         targetSize: CGSize?,
         duration: Double,
         job: RunLoopJob,
-        slideDirection: SlideDirection? = nil
+        slideDirection: SlideDirection? = nil,
+        onComplete: (@Sendable () -> Void)? = nil
     ) {
         // Get current position/size
         guard let currentTopLeft = window.get(Ax.topLeftCornerAttr),
@@ -116,8 +137,11 @@ final class WindowAnimationCoordinator: @unchecked Sendable {
             duration: duration,
             job: job,
             lastSetTopLeft: nil,
-            lastSetSize: nil
+            lastSetSize: nil,
+            onComplete: onComplete
         )
+        
+        debugLog("Added animation for window \(windowId) from \(effectiveStartTopLeft) to \(finalTargetTopLeft)")
 
         if !isRunning {
             isRunning = true
@@ -126,7 +150,14 @@ final class WindowAnimationCoordinator: @unchecked Sendable {
     }
 
     func cancelAnimation(windowId: UInt32) {
+        if animations[windowId] != nil {
+            debugLog("Cancelling animation for window \(windowId)")
+        }
         animations.removeValue(forKey: windowId)
+    }
+    
+    func isAnimating(windowId: UInt32) -> Bool {
+        animations[windowId] != nil
     }
 
     private func runAnimationLoop() {
@@ -186,6 +217,7 @@ final class WindowAnimationCoordinator: @unchecked Sendable {
                         // Jump to final position and complete
                         anim.window.set(Ax.topLeftCornerAttr, anim.targetTopLeft)
                         anim.window.set(Ax.sizeAttr, anim.targetSize)
+                        anim.onComplete?()
                         completedIds.append(windowId)
                         continue
                     }
@@ -195,6 +227,7 @@ final class WindowAnimationCoordinator: @unchecked Sendable {
                     // Animation time completed - set final position
                     anim.window.set(Ax.topLeftCornerAttr, anim.targetTopLeft)
                     anim.window.set(Ax.sizeAttr, anim.targetSize)
+                    anim.onComplete?()
                     completedIds.append(windowId)
                     continue
                 }

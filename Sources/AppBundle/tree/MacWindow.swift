@@ -139,6 +139,27 @@ final class MacWindow: Window {
     @MainActor
     func hideInCorner(_ corner: OptimalHideCorner) async throws {
         guard let nodeMonitor else { return }
+        
+        // Don't hide windows that are currently animating - let them finish their animation first
+        if macApp.animationCoordinator.isAnimating(windowId: windowId) {
+            let logFile = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("aerospace-animation-debug.log")
+            let timestamp = Date().formatted(date: .omitted, time: .standard)
+            let logMessage = "[\(timestamp)] Skipping hideInCorner for window \(windowId) - currently animating\n"
+            if let data = logMessage.data(using: .utf8) {
+                if FileManager.default.fileExists(atPath: logFile.path) {
+                    if let handle = try? FileHandle(forWritingTo: logFile) {
+                        handle.seekToEndOfFile()
+                        handle.write(data)
+                        try? handle.close()
+                    }
+                } else {
+                    try? data.write(to: logFile)
+                }
+            }
+            return
+        }
+        
         try await saveProportionalPosition()
         let p: CGPoint
         switch corner {
@@ -153,6 +174,21 @@ final class MacWindow: Window {
                 // todo this ad hoc won't be necessary once I implement optimization suggested by Zalim
                 let onePixelOffset = macApp.appId == .zoom ? .zero : CGPoint(x: 1, y: 1)
                 p = nodeMonitor.visibleRect.bottomRightCorner - onePixelOffset
+        }
+        let logFile = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("aerospace-animation-debug.log")
+        let timestamp = Date().formatted(date: .omitted, time: .standard)
+        let logMessage = "[\(timestamp)] Hiding window \(windowId) to corner\n"
+        if let data = logMessage.data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: logFile.path) {
+                if let handle = try? FileHandle(forWritingTo: logFile) {
+                    handle.seekToEndOfFile()
+                    handle.write(data)
+                    try? handle.close()
+                }
+            } else {
+                try? data.write(to: logFile)
+            }
         }
         setAxFrame(p, nil, animate: false)  // Don't animate hiding to corner
     }
@@ -188,8 +224,8 @@ final class MacWindow: Window {
         try await macApp.getAxSize(windowId)
     }
 
-    override func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true, slideDirection: SlideDirection? = nil) {
-        macApp.setAxFrame(windowId, topLeft, size, animate: animate, slideDirection: slideDirection)
+    override func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true, slideDirection: SlideDirection? = nil, onComplete: (@Sendable () -> Void)? = nil) {
+        macApp.setAxFrame(windowId, topLeft, size, animate: animate, slideDirection: slideDirection, onComplete: onComplete)
     }
 
     override func setAxFrameBlocking(_ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true, slideDirection: SlideDirection? = nil) async throws {
@@ -214,8 +250,45 @@ final class MacWindow: Window {
             ? currentX - slideDistance  // Slide left by full monitor width
             : currentX + slideDistance  // Slide right by full monitor width
 
-        setAxFrame(CGPoint(x: targetX, y: targetY), nil, animate: true)
+        // Determine hide corner for this window
+        let corner: OptimalHideCorner = direction == .left ? .bottomLeftCorner : .bottomRightCorner
+        
+        // Capture references needed for the completion callback
+        let windowId = self.windowId
+        let weakSelf = WeakBox(self)
+        
+        // Start the slide-out animation, and hide to corner when complete
+        setAxFrame(CGPoint(x: targetX, y: targetY), nil, animate: true, onComplete: { @Sendable in
+            // Hide window to corner after animation completes
+            Task { @MainActor in
+                guard let window = weakSelf.value else { return }
+                try? await window.forceHideInCorner(corner)
+            }
+        })
     }
+    
+    // Force hide without checking if animating (used by animation completion callback)
+    @MainActor
+    private func forceHideInCorner(_ corner: OptimalHideCorner) async throws {
+        guard let nodeMonitor else { return }
+        let p: CGPoint
+        switch corner {
+            case .bottomLeftCorner:
+                guard let s = try await getAxSize() else { fallthrough }
+                let onePixelOffset = macApp.appId == .zoom ? .zero : CGPoint(x: 1, y: -1)
+                p = nodeMonitor.visibleRect.bottomLeftCorner + onePixelOffset + CGPoint(x: -s.width, y: 0)
+            case .bottomRightCorner:
+                let onePixelOffset = macApp.appId == .zoom ? .zero : CGPoint(x: 1, y: 1)
+                p = nodeMonitor.visibleRect.bottomRightCorner - onePixelOffset
+        }
+        setAxFrame(p, nil, animate: false)  // Don't animate hiding to corner
+    }
+
+// Weak reference wrapper for Sendable closure
+private final class WeakBox<T: AnyObject>: @unchecked Sendable {
+    weak var value: T?
+    init(_ value: T) { self.value = value }
+}
 
     override func getAxTopLeftCorner() async throws -> CGPoint? {
         try await macApp.getAxTopLeftCorner(windowId)

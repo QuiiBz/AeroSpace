@@ -16,7 +16,7 @@ final class MacApp: AbstractApp {
     public var lastNativeFocusedWindowId: UInt32? = nil
     private var thread: Thread?
     private var setFrameJobs: [UInt32: RunLoopJob] = [:]
-    private let animationCoordinator = WindowAnimationCoordinator()
+    let animationCoordinator = WindowAnimationCoordinator()
     @MainActor private static var focusJob: RunLoopJob? = nil
 
     /*conforms*/ var name: String? { nsApp.localizedName }
@@ -132,7 +132,7 @@ final class MacApp: AbstractApp {
         }
     }
 
-    func setAxFrame(_ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true, slideDirection: SlideDirection? = nil) {
+    func setAxFrame(_ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true, slideDirection: SlideDirection? = nil, onComplete: (@Sendable () -> Void)? = nil) {
         let duration = animate ? MainActor.assumeIsolated { config.windowAnimationDuration } : 0
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
         animationCoordinator.cancelAnimation(windowId: windowId)
@@ -143,6 +143,7 @@ final class MacApp: AbstractApp {
                 try disableAnimations(app: axApp.threadGuarded, job) {
                     try setFrame(window, topLeft, size, job)
                 }
+                onComplete?()
             }
         } else {
             // Animated mode - use coordinator for parallel animations
@@ -154,7 +155,8 @@ final class MacApp: AbstractApp {
                     targetSize: size,
                     duration: duration,
                     job: job,
-                    slideDirection: slideDirection
+                    slideDirection: slideDirection,
+                    onComplete: onComplete
                 )
             }
         }
