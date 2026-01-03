@@ -1,9 +1,6 @@
 import AppKit
 import Common
 
-enum SlideDirection { case left, right }
-@MainActor var workspaceSwitchDirection: SlideDirection? = nil
-
 enum EffectiveLeaf {
     case window(Window)
     case emptyWorkspace(Workspace)
@@ -69,8 +66,6 @@ struct FrozenFocus: AeroAny, Equatable, Sendable {
     // Normalize mruWindow when focus away from a workspace
     if oldFocus.workspace != newFocus.workspace {
         oldFocus.windowOrNil?.markAsMostRecentChild()
-        // Set slide direction based on workspace order
-        workspaceSwitchDirection = newFocus.workspace > oldFocus.workspace ? .right : .left
     }
 
     _focus = newFocus.frozen

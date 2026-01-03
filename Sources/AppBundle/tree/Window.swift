@@ -41,8 +41,8 @@ open class Window: TreeNode, Hashable {
     func getAxRect() async throws -> Rect? { die("Not implemented") }
     func getCenter() async throws -> CGPoint? { try await getAxRect()?.center }
 
-    func setAxFrameBlocking(_ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true, slideDirection: SlideDirection? = nil) async throws { die("Not implemented") }
-    func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true, slideDirection: SlideDirection? = nil) { die("Not implemented") }
+    func setAxFrameBlocking(_ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true) async throws { die("Not implemented") }
+    func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?, animate: Bool = true) { die("Not implemented") }
 }
 
 enum LayoutReason: Equatable {
