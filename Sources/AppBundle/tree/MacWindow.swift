@@ -121,10 +121,12 @@ final class MacWindow: Window {
         macApp.closeAndUnregisterAxWindow(windowId)
     }
 
-    // Saves the window's proportional position before hiding or animating off-screen
+    // todo it's part of the window layout and should be moved to layoutRecursive.swift
     @MainActor
-    func saveProportionalPosition() async throws {
-        // Don't accidentally override prevUnhiddenProportionalPositionInsideWorkspaceRect in case of subsequent calls
+    func hideInCorner(_ corner: OptimalHideCorner) async throws {
+        guard let nodeMonitor else { return }
+        // Don't accidentally override prevUnhiddenEmulationPosition in case of subsequent
+        // `hideEmulation` calls
         if !isHiddenInCorner {
             guard let windowRect = try await getAxRect() else { return }
             let topLeftCorner = windowRect.topLeftCorner
@@ -133,13 +135,6 @@ final class MacWindow: Window {
             prevUnhiddenProportionalPositionInsideWorkspaceRect =
                 CGPoint(x: absolutePoint.x / monitorRect.width, y: absolutePoint.y / monitorRect.height)
         }
-    }
-
-    // todo it's part of the window layout and should be moved to layoutRecursive.swift
-    @MainActor
-    func hideInCorner(_ corner: OptimalHideCorner) async throws {
-        guard let nodeMonitor else { return }
-        try await saveProportionalPosition()
         let p: CGPoint
         switch corner {
             case .bottomLeftCorner:
@@ -197,23 +192,19 @@ final class MacWindow: Window {
     }
 
     @MainActor
-    func animateOffScreen(direction: SlideDirection) async throws {
-        // Save the window's proportional position before animating off-screen
-        // This ensures floating windows can be restored to their original position
-        try await saveProportionalPosition()
-
+    func animateOffScreen(direction: SlideDirection) {
         guard let monitor = nodeMonitor else { return }
-
+        
         // Calculate current position
         let currentX = lastAppliedLayoutPhysicalRect?.topLeftX ?? monitor.rect.topLeftX
         let targetY = lastAppliedLayoutPhysicalRect?.topLeftY ?? monitor.rect.topLeftY
-
+        
         // Slide off-screen by monitor width - ensures consistent animation distance
         let slideDistance = monitor.rect.width
         let targetX = direction == .left
             ? currentX - slideDistance  // Slide left by full monitor width
             : currentX + slideDistance  // Slide right by full monitor width
-
+        
         setAxFrame(CGPoint(x: targetX, y: targetY), nil, animate: true)
     }
 

@@ -183,7 +183,7 @@ private func layoutWorkspaces() async throws {
             // direction=.right means new workspace is to the right, so old windows slide out to LEFT
             let outDirection: SlideDirection = direction == .right ? .left : .right
             for window in prevWorkspace.allLeafWindowsRecursive {
-                try await (window as! MacWindow).animateOffScreen(direction: outDirection) // todo as!
+                (window as! MacWindow).animateOffScreen(direction: outDirection) // todo as!
             }
             animatedOutWorkspace = prevWorkspace
         }
@@ -201,13 +201,9 @@ private func layoutWorkspaces() async throws {
     // Now layout visible workspaces with slide-in animation
     for monitor in monitors {
         let workspace = monitor.activeWorkspace
-        // Always unhide floating windows from corner - they need position restoration
-        // Tiling windows can skip unhiding when sliding because layoutRecursive handles them
-        for window in workspace.allLeafWindowsRecursive {
-            let macWindow = window as! MacWindow // todo as!
-            if window.isFloating || slideDirection == nil {
-                macWindow.unhideFromCorner()
-            }
+        // Don't unhide from corner when sliding in - the animation will handle positioning from the edge
+        if slideDirection == nil {
+            workspace.allLeafWindowsRecursive.forEach { ($0 as! MacWindow).unhideFromCorner() } // todo as!
         }
         try await workspace.layoutWorkspace(slideDirection: slideDirection)
     }
