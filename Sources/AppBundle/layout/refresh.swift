@@ -4,10 +4,6 @@ import Common
 @MainActor
 private var activeRefreshTask: Task<(), any Error>? = nil
 
-// Track which workspace is currently being animated out to prevent hiding it on subsequent layoutWorkspaces() calls
-@MainActor
-private var currentlyAnimatingOutWorkspace: Workspace? = nil
-
 @MainActor
 func scheduleRefreshSession(
     _ event: RefreshSessionEvent,
@@ -27,12 +23,7 @@ func runRefreshSessionBlocking(
     optimisticallyPreLayoutWorkspaces: Bool = false,
 ) async throws {
     let state = signposter.beginInterval(#function, "event: \(event) axTaskLocalAppThreadToken: \(axTaskLocalAppThreadToken?.idForDebug)")
-    defer { 
-        signposter.endInterval(#function, state)
-        // Clear the animating workspace reference at the end of the refresh session
-        // This allows the workspace to be properly hidden in the next refresh
-        currentlyAnimatingOutWorkspace = nil
-    }
+    defer { signposter.endInterval(#function, state) }
     if !TrayMenuModel.shared.isEnabled { return }
     try await $refreshSessionEvent.withValue(event) {
         try await $_isStartup.withValue(event.isStartup) {
@@ -61,12 +52,7 @@ func runLightSession<T>(
     body: @MainActor () async throws -> T,
 ) async throws -> T {
     let state = signposter.beginInterval(#function, "event: \(event) axTaskLocalAppThreadToken: \(axTaskLocalAppThreadToken?.idForDebug)")
-    defer { 
-        signposter.endInterval(#function, state)
-        // NOTE: Don't clear currentlyAnimatingOutWorkspace here!
-        // runLightSession schedules a new refresh session at the end (line 91)
-        // which will handle clearing it after animations complete
-    }
+    defer { signposter.endInterval(#function, state) }
     activeRefreshTask?.cancel() // Give priority to runSession
     activeRefreshTask = nil
     return try await $refreshSessionEvent.withValue(event) {
@@ -186,6 +172,9 @@ private func layoutWorkspaces() async throws {
         monitorToOptimalHideCorner[monitor.rect.topLeftCorner] = corner
     }
 
+    // Track which workspace we're animating out
+    var animatedOutWorkspace: Workspace? = nil
+
     // If we have a slide direction, animate the previous workspace windows out
     if let direction = slideDirection, let prevWorkspaceName = _prevFocusedWorkspaceName {
         let prevWorkspace = Workspace.get(byName: prevWorkspaceName)
@@ -196,13 +185,20 @@ private func layoutWorkspaces() async throws {
             for window in prevWorkspace.allLeafWindowsRecursive {
                 try await (window as! MacWindow).animateOffScreen(direction: outDirection) // todo as!
             }
-            // Store this workspace as currently animating so subsequent layoutWorkspaces() calls don't hide it
-            currentlyAnimatingOutWorkspace = prevWorkspace
+            animatedOutWorkspace = prevWorkspace
+        }
+    }
+
+    // Hide all invisible workspaces FIRST (except the one being animated out)
+    // This ensures no stale windows are visible during the animation
+    for workspace in Workspace.all where !workspace.isVisible && workspace != animatedOutWorkspace {
+        let corner = monitorToOptimalHideCorner[workspace.workspaceMonitor.rect.topLeftCorner] ?? .bottomRightCorner
+        for window in workspace.allLeafWindowsRecursive {
+            try await (window as! MacWindow).hideInCorner(corner) // todo as!
         }
     }
 
     // Now layout visible workspaces with slide-in animation
-    // This happens in PARALLEL with the slide-out animation above
     for monitor in monitors {
         let workspace = monitor.activeWorkspace
         // Always unhide floating windows from corner - they need position restoration
@@ -216,17 +212,8 @@ private func layoutWorkspaces() async throws {
         try await workspace.layoutWorkspace(slideDirection: slideDirection)
     }
 
-    // Hide all OTHER invisible workspaces AFTER visible workspaces are laid out
-    // Exclude the currently animating workspace to prevent cancelling its animation
-    for workspace in Workspace.all where !workspace.isVisible && workspace != currentlyAnimatingOutWorkspace {
-        let corner = monitorToOptimalHideCorner[workspace.workspaceMonitor.rect.topLeftCorner] ?? .bottomRightCorner
-        for window in workspace.allLeafWindowsRecursive {
-            try await (window as! MacWindow).hideInCorner(corner) // todo as!
-        }
-    }
-
-    // The animated-out workspace ends up off-screen from the slide-out animation
-    // and will be properly hidden in the next refresh session after animations complete
+    // Don't hide the animated-out workspace - it ends up off-screen from the slide-out animation
+    // and will be properly positioned when switching back to it
 }
 
 @MainActor
