@@ -42,6 +42,7 @@ struct Config: ConvenienceCopyable {
     var defaultRootContainerLayout: Layout = .tiles
     var defaultRootContainerOrientation: DefaultContainerOrientation = .auto
     var startAtLogin: Bool = false
+    var autoReloadConfig: Bool = false
     var automaticallyUnhideMacosHiddenApps: Bool = false
     var windowAnimationDuration: Double = 0  // 0 = disabled, otherwise seconds (e.g., 0.2)
     var accordionPadding: Int = 30

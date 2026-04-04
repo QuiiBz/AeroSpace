@@ -41,9 +41,9 @@ enum MacOsWindowLevel: Sendable, Equatable {
 
     static func fromJson(_ json: Json) -> MacOsWindowLevel? {
         switch json {
-            case .string(let str) where str == "normalWindow": .normalWindow
-            case .string(let str) where str == "alwaysOnTopWindow": .alwaysOnTopWindow
-            case .int(let int): .new(windowLevel: int)
+            case .string("normalWindow"): .normalWindow
+            case .string("alwaysOnTopWindow"): .alwaysOnTopWindow
+            case .int(let int): .new(windowLevel: Int(exactly: int).orDie())
             default: nil
         }
     }

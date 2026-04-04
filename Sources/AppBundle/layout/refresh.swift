@@ -48,7 +48,7 @@ func runRefreshSessionBlocking(
 @MainActor
 func runLightSession<T>(
     _ event: RefreshSessionEvent,
-    _ token: RunSessionGuard,
+    _: RunSessionGuard,
     body: @MainActor () async throws -> T,
 ) async throws -> T {
     let state = signposter.beginInterval(#function, "event: \(event) axTaskLocalAppThreadToken: \(axTaskLocalAppThreadToken?.idForDebug)")
@@ -88,7 +88,14 @@ struct RunSessionGuard: Sendable {
         command is EnableCommand ? .forceRun : .isServerEnabled
     }
     @MainActor
-    static var checkServerIsEnabledOrDie: RunSessionGuard { .isServerEnabled ?? dieT("server is disabled") }
+    static func checkServerIsEnabledOrDie(
+        file: StaticString = #fileID,
+        line: Int = #line,
+        column: Int = #column,
+        function: String = #function,
+    ) -> RunSessionGuard {
+        .isServerEnabled ?? dieT("server is disabled", file: file, line: line, column: column, function: function)
+    }
     static let forceRun = RunSessionGuard()
     private init() {}
 }
@@ -121,7 +128,7 @@ private func refresh() async throws {
     Workspace.garbageCollectUnusedWorkspaces()
 }
 
-func refreshObs(_ obs: AXObserver, ax: AXUIElement, notif: CFString, data: UnsafeMutableRawPointer?) {
+func refreshObs(_: AXObserver, _: AXUIElement, notif: CFString, _: UnsafeMutableRawPointer?) {
     let notif = notif as String
     Task { @MainActor in
         if !TrayMenuModel.shared.isEnabled { return }

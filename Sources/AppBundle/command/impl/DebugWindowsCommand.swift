@@ -21,7 +21,7 @@ enum DebugWindowsState {
 
 struct DebugWindowsCommand: Command {
     let args: DebugWindowsCmdArgs
-    /*conforms*/ var shouldResetClosedWindowsCache = false
+    /*conforms*/ let shouldResetClosedWindowsCache = false
 
     func run(_ env: CmdEnv, _ io: CmdIo) async throws -> Bool {
         if let windowId = args.windowId {
@@ -80,7 +80,7 @@ private func dumpWindowDebugInfo(_ window: Window) async throws -> String {
     let windowLevel = getWindowLevel(for: window.windowId)
     let windowLevelJson = windowLevel?.toJson() ?? .null
     result["Aero.windowLevel"] = windowLevelJson
-    result["Aero.axWindowId"] = .uint32(window.windowId)
+    result["Aero.axWindowId"] = .int(window.windowId)
     result["Aero.workspace"] = .stringOrNull(window.nodeWorkspace?.name)
     result["Aero.treeNodeParent"] = .string(String(describing: window.parent))
     result["Aero.macOS.version"] = .string(ProcessInfo().operatingSystemVersionString) // because built-in apps might behave differently depending on the OS version

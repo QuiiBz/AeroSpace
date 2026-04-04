@@ -39,10 +39,10 @@ let focus_monitor_help_generated = """
        OR: focus-monitor [-h|--help] <monitor-pattern>...
     """
 let focus_help_generated = """
-    USAGE: focus [-h|--help] [--ignore-floating]
+    USAGE: focus [-h|--help] [--ignore-floating] [--wrap-around]
                  [--boundaries <boundary>] [--boundaries-action <action>]
                  (left|down|up|right)
-       OR: focus [-h|--help] [--ignore-floating]
+       OR: focus [-h|--help] [--ignore-floating] [--wrap-around]
                  [--boundaries <boundary>] [--boundaries-action <action>]
                  (dfs-next|dfs-prev)
        OR: focus [-h|--help] --window-id <window-id>
@@ -128,6 +128,9 @@ let resize_help_generated = """
     """
 let split_help_generated = """
     USAGE: split [-h|--help] [--window-id <window-id>] (horizontal|vertical|opposite)
+    """
+let subscribe_help_generated = """
+    USAGE: subscribe [-h|--help] [--all] [--no-send-initial] [<event>...]
     """
 let summon_workspace_help_generated = """
     USAGE: summon-workspace [-h|--help] [--fail-if-noop] <workspace>

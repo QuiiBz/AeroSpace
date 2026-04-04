@@ -195,10 +195,10 @@ enum Ax {
         key: kAXIdentifierAttribute,
         getter: { $0 as? String },
     )
-    static let modalAttr = ReadableAttrImpl<Bool>(
-        key: kAXModalAttribute,
-        getter: { $0 as? Bool },
-    )
+    // static let modalAttr = ReadableAttrImpl<Bool>(
+    //     key: kAXModalAttribute,
+    //     getter: { $0 as? Bool },
+    // )
     static let enabledAttr = ReadableAttrImpl<Bool>(
         key: kAXEnabledAttribute,
         getter: { $0 as? Bool },
@@ -301,7 +301,7 @@ private func castToAxUiElementMock(_ a: AnyObject) -> AxUiElementMock {
             let windowId = UInt32.init(String(str.prefix(upTo: commaIndex)).removePrefix("AXUIElement(AxWindowId="))
             if let windowId {
                 return castToAxUiElementMock([
-                    "Aero.axWindowId": Json.uint32(windowId),
+                    "Aero.axWindowId": Json.int(windowId),
                     kAXAeroSynthetic: Json.bool(true),
                 ] as AnyObject)
             }

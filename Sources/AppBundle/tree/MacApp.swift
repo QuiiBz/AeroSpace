@@ -13,7 +13,7 @@ final class MacApp: AbstractApp {
     private let appAxSubscriptions: ThreadGuardedValue<[AxSubscription]> // keep subscriptions in memory
     private let windows: ThreadGuardedValue<[UInt32: AxWindow]> = .init([:])
     private var windowsCount = 0
-    public var lastNativeFocusedWindowId: UInt32? = nil
+    var lastNativeFocusedWindowId: UInt32? = nil
     private var thread: Thread?
     private var setFrameJobs: [UInt32: RunLoopJob] = [:]
     private let animationCoordinator = WindowAnimationCoordinator()
@@ -71,7 +71,7 @@ final class MacApp: AbstractApp {
                     let app = isGood ? MacApp(nsApp, axApp, subscriptions, Thread.current) : nil
                     Task { @MainActor in
                         allAppsMap[pid] = app
-                        await wip.signal()
+                        await wip.signalToAll()
                         wipPids[pid] = nil
                     }
                     if isGood {
@@ -189,12 +189,6 @@ final class MacApp: AbstractApp {
     func getAxWindowsCount() async throws -> Int? {
         try await thread?.runInLoop { [axApp] job in
             axApp.threadGuarded.get(Ax.windowsAttr)?.count
-        }
-    }
-
-    func getAxTopLeftCorner(_ windowId: UInt32) async throws -> CGPoint? {
-        try await withWindow(windowId) { window, job in
-            window.get(Ax.topLeftCornerAttr)
         }
     }
 
@@ -375,6 +369,7 @@ final class MacApp: AbstractApp {
 private final class AxWindow {
     let windowId: UInt32
     let ax: AXUIElement
+    // periphery:ignore
     private let axSubscriptions: [AxSubscription] // keep subscriptions in memory
 
     private init(windowId: UInt32, _ ax: AXUIElement, _ axSubscriptions: [AxSubscription]) {
@@ -439,5 +434,3 @@ private func disableAnimations<T>(app: AXUIElement, _ job: RunLoopJob, _ body: (
     try job.checkCancellation()
     return try body()
 }
-
-typealias Continuation<T> = CheckedContinuation<T, Never>

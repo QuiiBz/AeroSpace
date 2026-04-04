@@ -167,8 +167,9 @@ If you find it useful, [consider sponsoring](https://github.com/sponsors/nikitab
 
 In alphabetical order:
 
-- [@mobile-ar](https://github.com/mobile-ar/)
-- [@nikitabobko](https://github.com/nikitabobko/)
+- [@mobile-ar](https://github.com/mobile-ar)
+- [@nikitabobko](https://github.com/nikitabobko)
+- [@rickyz](https://github.com/rickyz)
 
 ## Tip of the day
 
