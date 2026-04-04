@@ -113,6 +113,7 @@ private let configParser: [String: any ParserProtocol<Config>] = [
     "start-at-login": Parser(\.startAtLogin, parseBool),
     "auto-reload-config": Parser(\.autoReloadConfig, parseBool),
     "automatically-unhide-macos-hidden-apps": Parser(\.automaticallyUnhideMacosHiddenApps, parseBool),
+    "window-animation-duration": Parser(\.windowAnimationDuration, parseDouble),
     "accordion-padding": Parser(\.accordionPadding, parseInt),
     persistentWorkspacesKey: Parser(\.persistentWorkspaces, parsePersistentWorkspaces),
     "exec-on-workspace-change": Parser(\.execOnWorkspaceChange, parseArrayOfStrings),
@@ -283,12 +284,21 @@ func parseInt(_ raw: Json, _ backtrace: ConfigBacktrace) -> ParsedConfig<Int> {
     raw.asIntOrNil.orFailure(expectedActualTypeError(expected: .int, actual: raw.tomlType, backtrace))
 }
 
+func parseDouble(_ raw: Json, _ backtrace: ConfigBacktrace) -> ParsedConfig<Double> {
+    if let double = raw.asDoubleOrNil {
+        return .success(double)
+    } else if let int = raw.asIntOrNil {
+        return .success(Double(int))
+    }
+    return .failure(expectedActualTypeError(expected: [.double, .int], actual: raw.tomlType, backtrace))
+}
+
 func parseString(_ raw: Json, _ backtrace: ConfigBacktrace) -> ParsedConfig<String> {
     raw.asStringOrNil.orFailure(expectedActualTypeError(expected: .string, actual: raw.tomlType, backtrace))
 }
 
 func parseSimpleType<T>(_ raw: Json, ofType: T.Type) -> T? {
-    (raw.asIntOrNil as? T) ?? (raw.asStringOrNil as? T) ?? (raw.asBoolOrNil as? T)
+    (raw.asIntOrNil as? T) ?? (raw.asDoubleOrNil as? T) ?? (raw.asStringOrNil as? T) ?? (raw.asBoolOrNil as? T)
 }
 
 extension Json {

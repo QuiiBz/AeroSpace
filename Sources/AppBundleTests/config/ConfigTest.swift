@@ -183,6 +183,24 @@ final class ConfigTest: XCTestCase {
         )
     }
 
+    func testWindowAnimationDuration() {
+        let (config, errors) = parseConfig(
+            """
+            window-animation-duration = 0.15
+            """,
+        )
+        assertEquals(errors, [])
+        assertEquals(config.windowAnimationDuration, 0.15)
+
+        let (intConfig, intErrors) = parseConfig(
+            """
+            window-animation-duration = 1
+            """,
+        )
+        assertEquals(intErrors, [])
+        assertEquals(intConfig.windowAnimationDuration, 1)
+    }
+
     func testConfigParseError() {
         assertEquals(
             parseConfig("true").errors,
@@ -201,7 +219,7 @@ final class ConfigTest: XCTestCase {
 
         assertEquals(
             parseConfig("foo = 1.0").errors,
-            ["foo: Unsupported TOML type: Double"],
+            ["foo: Unknown top-level key"],
         )
 
         assertEquals(

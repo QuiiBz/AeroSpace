@@ -10,6 +10,7 @@ enum Json: Encodable, Equatable {
     case null
     case string(String)
     case int(Int64)
+    case double(Double)
     case bool(Bool)
 
     typealias JsonDict = [String: Json]
@@ -21,6 +22,7 @@ enum Json: Encodable, Equatable {
             case .dict(let value): try value.encode(to: encoder)
             case .string(let value): try value.encode(to: encoder)
             case .int(let value): try value.encode(to: encoder)
+            case .double(let value): try value.encode(to: encoder)
             case .bool(let value): try value.encode(to: encoder)
             case .null: try (nil as String?).encode(to: encoder)
         }
@@ -42,6 +44,8 @@ enum Json: Encodable, Equatable {
             case let value as Int: .int(Int64(value))
             case let value as UInt32: .int(Int64(value))
             case let value as UInt: .int(Int64(value))
+            case let value as Double: .double(value)
+            case let value as Float: .double(Double(value))
             case let value as Bool: .bool(value)
             case let value as String: .string(value)
             case nil, is NSNull: .null
@@ -63,6 +67,7 @@ enum Json: Encodable, Equatable {
 
             case .bool(let x): x
             case .int(let x): x
+            case .double(let x): x
             case .string(let x): x
         }
     }
@@ -75,6 +80,10 @@ enum Json: Encodable, Equatable {
 
     var asIntOrNil: Int? {
         asInt64OrNil.flatMap { Int.init(exactly: $0) }
+    }
+
+    var asDoubleOrNil: Double? {
+        if case .double(let value) = self { value } else { nil }
     }
 
     var asStringOrNil: String? {
@@ -100,6 +109,7 @@ enum Json: Encodable, Equatable {
             case .null: return .null
             case .string: return .string
             case .int: return .int
+            case .double: return .double
             case .bool: return .bool
         }
     }
@@ -112,5 +122,6 @@ enum TomlType: String {
     case null
     case string
     case int
+    case double
     case bool
 }
