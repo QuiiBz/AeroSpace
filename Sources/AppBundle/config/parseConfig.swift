@@ -139,7 +139,7 @@ extension ParsedCmd where T == any Command {
                     ? .success(a)
                     : .failure("Command '\(a.info.kind.rawValue)' cannot be used in config")
             case .help(let a): .failure(a)
-            case .failure(let a): .failure(a)
+            case .failure(let a): .failure(a.msg)
         }
     }
 }
@@ -197,8 +197,7 @@ func tomlAnyToParsedConfigRecursive(any: Any, _ backtrace: ConfigBacktrace) -> P
             }
             return .success(.array(json))
         default:
-            return Json.newScalarOrNil(any).map(Result.success)
-                ?? .failure(.semantic(backtrace, "Unsupported TOML type: \(type(of: any))"))
+            return Json.newScalarOrNil(any).orFailure(.semantic(backtrace, "Unsupported TOML type: \(type(of: any))"))
     }
 }
 
@@ -444,10 +443,9 @@ extension Json.JsonDict {
 
         for (key, value) in self {
             let backtrace: ConfigBacktrace = backtrace + .key(key)
-            if let parser = fieldsParser[key] {
-                raw = parser.transformRawConfig(raw, value, backtrace, &errors)
-            } else {
-                errors.append(unknownKeyError(backtrace))
+            switch fieldsParser[key] {
+                case let parser?: raw = parser.transformRawConfig(raw, value, backtrace, &errors)
+                case nil: errors.append(unknownKeyError(backtrace))
             }
         }
 
