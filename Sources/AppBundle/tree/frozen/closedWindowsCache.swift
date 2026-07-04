@@ -39,7 +39,7 @@ struct FrozenWorkspace: Sendable {
 
 @MainActor func cacheClosedWindowIfNeeded() {
     let allWs = Workspace.all
-    let allWindowIds = allWs.flatMap { collectAllWindowIds(workspace: $0) }.toSet()
+    let allWindowIds = allWs.flatMap { collectAllWindowIdsRecursive($0) }.toSet()
     if allWindowIds.isSubset(of: closedWindowsCache.windowIds) {
         return // already cached
     }
@@ -73,7 +73,7 @@ struct FrozenWorkspace: Sendable {
         prevRoot.unbindFromParent()
         restoreTreeRecursive(frozenContainer: frozenWorkspace.rootTilingNode, parent: workspace, index: INDEX_BIND_LAST)
         for window in (potentialOrphans - workspace.rootTilingContainer.allLeafWindowsRecursive) {
-            try await window.relayoutWindow(on: workspace, forceTile: true)
+            try await window.relayoutWindow(on: workspace, .cancellable, forceTile: true)
         }
     }
 

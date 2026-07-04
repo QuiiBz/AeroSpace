@@ -21,7 +21,9 @@ extension TreeNode {
                 lastAppliedLayoutPhysicalRect = physicalRect
                 lastAppliedLayoutVirtualRect = virtual
                 try await workspace.rootTilingContainer.layoutRecursive(point, width: width, height: height, virtual: virtual, context)
-                for window in workspace.children.filterIsInstance(of: Window.self) {
+                try await workspace.floatingWindowsContainer.layoutRecursive(point, width: width, height: height, virtual: virtual, context)
+            case .floatingWindowsContainer(let container):
+                for window in container.children.filterIsInstance(of: Window.self) {
                     window.lastAppliedLayoutPhysicalRect = nil
                     window.lastAppliedLayoutVirtualRect = nil
                     try await window.layoutFloatingWindow(context)
@@ -73,7 +75,7 @@ extension Window {
     @MainActor
     fileprivate func layoutFloatingWindow(_ context: LayoutContext) async throws {
         let workspace = context.workspace
-        let windowRect = try await getAxRect() // Probably not idempotent
+        let windowRect = try await getAxRect(.cancellable) // Probably not idempotent
         let currentMonitor = windowRect?.center.monitorApproximation
         if let currentMonitor, let windowRect, workspace != currentMonitor.activeWorkspace {
             let windowTopLeftCorner = windowRect.topLeftCorner

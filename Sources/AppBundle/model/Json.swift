@@ -1,7 +1,7 @@
 import AppKit
 import Common
 
-enum Json: Encodable, Equatable {
+enum Json: Encodable, Equatable { // todo rename to Dto? (data transfer object)
     // vector
     case dict(JsonDict)
     case array(JsonArray)
@@ -101,27 +101,4 @@ enum Json: Encodable, Equatable {
     var asArrayOrNil: JsonArray? {
         if case .array(let value) = self { value } else { nil }
     }
-
-    var tomlType: TomlType {
-        switch self {
-            case .dict: return .table
-            case .array: return .array
-            case .null: return .null
-            case .string: return .string
-            case .int: return .int
-            case .double: return .double
-            case .bool: return .bool
-        }
-    }
-}
-
-enum TomlType: String {
-    case table
-    case array
-
-    case null
-    case string
-    case int
-    case double
-    case bool
 }
