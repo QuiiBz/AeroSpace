@@ -204,16 +204,17 @@ final class LayoutCommandTest: XCTestCase {
         assertEquals(workspace.floatingWindows.map(\.windowId), [1])
     }
 
-    func testChangeTilingLayoutOnFloatingWindow_fails() async {
+    func testChangeTilingLayoutOnFloatingWindow_convertsToTiling() async {
         let workspace = Workspace.get(byName: name)
         workspace.floatingWindowsContainer.apply {
             assertEquals(TestWindow.new(id: 1, parent: $0).focusWindow(), true)
         }
 
         let result = await parseCommand("layout v_tiles").cmdOrDie.run(.defaultEnv, .emptyStdin)
-        assertEquals(result.exitCode.rawValue, 2)
-        assertEquals(result.stderr, ["The window is non-tiling"])
-        assertEquals(workspace.floatingWindows.map(\.windowId), [1])
+        assertEquals(result.exitCode.rawValue, 0)
+        assertEquals(result.stderr, [])
+        assertEquals(workspace.floatingWindows.map(\.windowId), [])
+        assertEquals(workspace.rootTilingContainer.layoutDescription, .v_tiles([.window(1)]))
     }
 
     func testTogglesAcrossFloatingAndTiling() async {

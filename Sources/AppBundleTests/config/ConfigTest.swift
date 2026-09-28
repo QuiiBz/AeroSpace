@@ -221,21 +221,21 @@ final class ConfigTest: XCTestCase {
     }
 
     func testWindowAnimationDuration() {
-        let (config, errors) = parseConfig(
+        let result = parseConfig(
             """
             window-animation-duration = 0.15
             """,
         )
-        assertEquals(errors, [])
-        assertEquals(config.windowAnimationDuration, 0.15)
+        assertEquals(result.errors, [])
+        assertEquals(result.config.windowAnimationDuration, 0.15)
 
-        let (intConfig, intErrors) = parseConfig(
+        let integerResult = parseConfig(
             """
             window-animation-duration = 1
             """,
         )
-        assertEquals(intErrors, [])
-        assertEquals(intConfig.windowAnimationDuration, 1)
+        assertEquals(integerResult.errors, [])
+        assertEquals(integerResult.config.windowAnimationDuration, 1)
     }
 
     func testConfigParseError() {
